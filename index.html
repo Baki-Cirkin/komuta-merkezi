@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Agent Komutanı v2</title>
+    <title>Agent Komutanı v3 (Debug)</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --error: #ef4444; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
@@ -29,6 +29,7 @@
         .btn-deepseek { background: linear-gradient(135deg, #3b82f6, #2563eb); }
         .btn-xiaomi { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .btn-save { background: var(--primary); width: 100%; margin-top: 10px; }
+        .btn-test { background: #64748b; width: 100%; margin-top: 10px; }
         
         #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 85%; position: relative; }
@@ -49,7 +50,7 @@
     <div class="status-card" id="status-box">
         <div class="status-row"><span>Bakiye:</span> <span class="status-val" id="disp-balance">--</span></div>
         <div class="status-row"><span>Son Model:</span> <span class="status-val" id="disp-model">--</span></div>
-        <div class="status-row"><span>Durum:</span> <span class="status-val" style="color:#3b82f6" id="disp-status">Bekleniyor...</span></div>
+        <div class="status-row"><span>Durum:</span> <span class="status-val" style="color:#3b82f6" id="disp-status">Hazır</span></div>
     </div>
 
     <div class="input-group">
@@ -68,11 +69,11 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeSettings()">&times;</span>
             <h3>⚙️ Ayarlar</h3>
-            <p style="font-size:0.8rem; color:#aaa">Classic Token (ghp_...) giriniz.</p>
             <input type="text" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
             <input type="text" id="gh-owner" placeholder="Baki-Cirkin">
             <input type="text" id="gh-repo" placeholder="agent-mode">
             <input type="number" id="gh-issue" placeholder="6">
+            <button class="btn-test" onclick="testConnection()">🔍 BAĞLANTIYI TEST ET</button>
             <button class="btn-save" onclick="saveSettings()">KAYDET</button>
         </div>
     </div>
@@ -96,9 +97,7 @@
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
-        function closeSettings() {
-            document.getElementById('settings-modal').style.display = 'none';
-        }
+        function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 
         function saveSettings() {
             const t = document.getElementById('gh-token').value.trim();
@@ -117,34 +116,63 @@
             } else alert("Tüm alanları doldurun!");
         }
 
+        // --- TANI VE TEST FONKSİYONU ---
+        async function testConnection() {
+            const t = document.getElementById('gh-token').value.trim();
+            const o = document.getElementById('gh-owner').value.trim();
+            const r = document.getElementById('gh-repo').value.trim();
+            
+            if (!t) return alert("Önce Token girin!");
+
+            // 1. TOKEN KONTROLÜ (Basit User Sorgusu)
+            try {
+                const userRes = await fetch("https://api.github.com/user", {
+                    headers: { 'Authorization': `token ${t}` }
+                });
+                
+                if (userRes.status === 401) {
+                    return alert("❌ HATA: Token GEÇERSİZ!\nToken yanlış veya silinmiş. Lütfen 'ghp_' ile başlayan yeni bir Classic Token alın.");
+                }
+                
+                const userData = await userRes.json();
+                alert(`✅ TOKEN DOĞRU!\nMeriha: ${userData.login}\nŞimdi Repo'yu deniyorum...`);
+
+                // 2. REPO KONTROLÜ
+                const repoRes = await fetch(`https://api.github.com/repos/${o}/${r}`, {
+                    headers: { 'Authorization': `token ${t}` }
+                });
+
+                if (repoRes.status === 404) {
+                    return alert(`❌ HATA: Repo Bulunamadı!\nKullanıcı: ${o}\nRepo: ${r}\n\nİsimlerde hata var veya Token'ın 'repo' yetkisi yok.`);
+                }
+
+                alert("✅ BAŞARILI! Her şey doğru çalışıyor. Ayarları Kaydet'e basın.");
+
+            } catch (e) {
+                alert("❌ BAĞLANTI HATASI:\n" + e.message + "\n\nİnternetinizi kontrol edin.");
+            }
+        }
+
         async function fetchStatus() {
             const statusEl = document.getElementById('disp-status');
             const logEl = document.getElementById('log');
-            
             statusEl.innerText = "Bağlanıyor...";
-            logEl.innerText = "GitHub'a bağlanılıyor...";
             
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/STATUS.md`;
             
             try {
-                const res = await fetch(url, { 
-                    headers: { 'Authorization': `token ${CONFIG.token}`, 'Cache-Control': 'no-cache' } 
-                });
+                const res = await fetch(url, { headers: { 'Authorization': `token ${CONFIG.token}` } });
                 
-                // HATA YÖNETİMİ (Döngüyü Engeller)
                 if (res.status === 404) {
                     statusEl.innerText = "Veri Yok (404)";
-                    logEl.innerText = "⚠️ STATUS.md dosyası bulunamadı. Ajan bir kez çalışınca düzelir.";
-                    return; // Ayarları açma, sadece bekle.
-                }
-
-                if (res.status === 401) {
-                    statusEl.innerText = "Yetki Hatası (401)";
-                    logEl.innerHTML = "<span class='error-txt'>Token Hatalı! Ayarlardan ghp_ token girin.</span>";
+                    logEl.innerText = "⚠️ STATUS.md yok. İlk komutu gönderin.";
                     return;
                 }
-
-                if (!res.ok) throw new Error("Hata Kodu: " + res.status);
+                if (res.status === 401) {
+                    statusEl.innerText = "Yetkisiz";
+                    logEl.innerText = "❌ Token Hatalı. Ayarları kontrol et.";
+                    return;
+                }
 
                 const data = await res.json();
                 const content = atob(data.content); 
@@ -156,11 +184,9 @@
                 document.getElementById('disp-model').innerText = model;
                 statusEl.innerText = "Online 🟢";
                 logEl.innerText = "Sistem Hazır.";
-
             } catch (e) {
-                statusEl.innerText = "Hata 🔴";
-                logEl.innerHTML = `<span class='error-txt'>${e.message}</span>`;
-                // KESİNLİKLE openSettings() ÇAĞIRMIYORUZ.
+                statusEl.innerText = "Hata";
+                logEl.innerText = e.message;
             }
         }
 
@@ -170,30 +196,27 @@
 
             const fullBody = `${agentPrefix} ${text}`;
             const logEl = document.getElementById('log');
-            logEl.innerText = "⏳ Emir Gönderiliyor...";
+            logEl.innerText = "⏳ Gönderiliyor...";
 
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
             
             try {
                 const res = await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `token ${CONFIG.token}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Authorization': `token ${CONFIG.token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ body: fullBody })
                 });
 
                 if (res.ok) {
-                    logEl.innerText = "✅ Emir İletildi! Agent çalışmaya başladı.";
+                    logEl.innerText = "✅ Emir İletildi!";
                     document.getElementById('prompt').value = "";
                     setTimeout(fetchStatus, 5000); 
                 } else {
-                    const errData = await res.json();
-                    throw new Error(errData.message || "Bilinmeyen Hata");
+                    const err = await res.json();
+                    alert("GÖNDERİM HATASI:\n" + (err.message || "Bilinmiyor"));
                 }
             } catch (e) {
-                logEl.innerHTML = `<span class='error-txt'>Gönderim Hatası: ${e.message}</span>`;
+                alert("HATA: " + e.message);
             }
         }
     </script>
