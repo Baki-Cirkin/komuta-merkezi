@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Agent Komutanı v6 (Final)</title>
+    <title>Agent Komutanı (2026)</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --warning: #f59e0b; --error: #ef4444; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
@@ -17,11 +17,9 @@
         .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; z-index: 2; position: relative; }
         .status-val { font-weight: bold; color: var(--success); font-family: monospace; }
         
-        /* CANLI DURUM ALANI */
         .live-container { display: flex; align-items: center; justify-content: center; margin-top: 15px; gap: 10px; }
         .live-status { font-size: 0.9rem; font-weight: bold; color: #64748b; }
         
-        /* DÖNEN ÇARK (SPINNER) */
         .spinner {
             border: 3px solid rgba(255, 255, 255, 0.1);
             border-left-color: var(--primary);
@@ -29,25 +27,32 @@
             width: 20px;
             height: 20px;
             animation: spin 1s linear infinite;
-            display: none; /* Başlangıçta gizli */
+            display: none;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+        .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; margin-bottom: 10px; }
         textarea { background: var(--card); border: 1px solid #334155; color: white; padding: 15px; border-radius: 12px; font-size: 1rem; resize: none; flex-grow: 1; outline: none; }
         textarea:focus { border-color: var(--primary); }
 
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        button { border: none; padding: 15px; border-radius: 10px; font-weight: bold; color: white; cursor: pointer; transition: transform 0.1s; font-size: 0.9rem; }
+        /* BUTON GRUBU (SCROLLABLE) */
+        .model-container { overflow-y: auto; max-height: 250px; padding-right: 5px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        
+        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; font-size: 0.85rem; text-align: center; }
         button:active { transform: scale(0.98); }
         
         .btn-gpt { background: linear-gradient(135deg, #10a37f, #0d8c6c); }
         .btn-claude { background: linear-gradient(135deg, #d97757, #b95e42); }
+        .btn-gemini { background: linear-gradient(135deg, #4285f4, #34a853); }
         .btn-deepseek { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .btn-qwen { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .btn-glm { background: linear-gradient(135deg, #ec4899, #db2777); }
         .btn-xiaomi { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        
+        /* Modal & Settings */
         .btn-save { background: var(--primary); width: 100%; margin-top: 10px; }
         .btn-test { background: #64748b; width: 100%; margin-top: 10px; }
-        
         #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 85%; position: relative; }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; color: #aaa; cursor: pointer; }
@@ -57,14 +62,13 @@
 <body>
 
     <div class="header">
-        <h1>Agent Komutanı</h1>
+        <h1>Komuta Merkezi</h1>
         <button class="btn-icon" onclick="openSettings()">⚙️</button>
     </div>
 
     <div class="status-card" id="status-box">
         <div class="status-row"><span>Bakiye:</span> <span class="status-val" id="disp-balance">--</span></div>
         <div class="status-row"><span>Son Model:</span> <span class="status-val" id="disp-model">--</span></div>
-        
         <div class="live-container">
             <div class="spinner" id="loading-spinner"></div>
             <div class="live-status" id="live-msg">Sistem Hazır</div>
@@ -72,14 +76,20 @@
     </div>
 
     <div class="input-group">
-        <textarea id="prompt" placeholder="Ajan'a ne yaptırmak istiyorsun?"></textarea>
+        <textarea id="prompt" placeholder="Görev tanımı..."></textarea>
     </div>
 
-    <div class="btn-grid">
-        <button class="btn-deepseek" onclick="sendCommand('@deepseek')">🔵 DeepSeek</button>
-        <button class="btn-gpt" onclick="sendCommand('@gpt5')">🧠 GPT-5</button>
-        <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude</button>
-        <button class="btn-xiaomi" onclick="sendCommand('@xiaomi')">⚡ Xiaomi</button>
+    <div class="model-container">
+        <div class="btn-grid">
+            <button class="btn-gpt" onclick="sendCommand('@gpt5')">🧠 GPT-5.2</button>
+            <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude 4.5</button>
+            <button class="btn-gemini" onclick="sendCommand('@gemini3')">💎 Gemini 3 Pro</button>
+            <button class="btn-claude" style="background:#7c3aed" onclick="sendCommand('@opus45')">🎭 Opus 4.5</button>
+            <button class="btn-deepseek" onclick="sendCommand('@deepseek3')">🔵 DeepSeek 3.2</button>
+            <button class="btn-qwen" onclick="sendCommand('@qwen3')">🐉 Qwen 3 Max</button>
+            <button class="btn-glm" onclick="sendCommand('@glm4')">⚡ GLM 4.7</button>
+            <button class="btn-xiaomi" onclick="sendCommand('@xiaomi')">🆓 Xiaomi (Bedava)</button>
+        </div>
     </div>
 
     <div id="settings-modal">
@@ -141,7 +151,7 @@
                 if (u.status === 401) return alert("❌ Token GEÇERSİZ!");
                 const rp = await fetch(`https://api.github.com/repos/${o}/${r}`, { headers: { 'Authorization': `token ${t}` } });
                 if (rp.status === 404) return alert("❌ Repo Bulunamadı!");
-                alert("✅ BAŞARILI! Kaydedin.");
+                alert("✅ BAŞARILI!");
             } catch (e) { alert("❌ Hata: " + e.message); }
         }
 
@@ -163,10 +173,7 @@
             try {
                 const res = await fetch(getNoCacheUrl(url), { headers: { 'Authorization': `token ${CONFIG.token}` } });
                 const data = await res.json();
-                if (data.workflow_runs && data.workflow_runs.length > 0) {
-                    return data.workflow_runs[0].id;
-                }
-                return 0;
+                return (data.workflow_runs && data.workflow_runs.length > 0) ? data.workflow_runs[0].id : 0;
             } catch (e) { return 0; }
         }
 
@@ -174,9 +181,7 @@
             const text = document.getElementById('prompt').value;
             if (!text) return alert("Görev yok!");
 
-            setLiveState("loading", "⏳ Emir İletiliyor...");
-            
-            // 1. Önce mevcut son ID'yi al (Böylece eski işlemle yeniyi karıştırmayız)
+            setLiveState("loading", "⏳ İletiliyor...");
             const lastRunId = await getLastRunId();
 
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
@@ -191,76 +196,46 @@
                 if (res.ok) {
                     document.getElementById('prompt').value = "";
                     setLiveState("loading", "⏳ Ajan Bekleniyor...");
-                    startMonitoring(lastRunId); // İzlemeyi başlat, referans ID ver
-                } else {
-                    setLiveState("error", "❌ Gönderim Hatası");
-                }
+                    startMonitoring(lastRunId);
+                } else { setLiveState("error", "❌ Gönderim Hatası"); }
             } catch (e) { setLiveState("error", "❌ Hata: " + e.message); }
         }
 
         function startMonitoring(oldRunId) {
             if (monitorInterval) clearInterval(monitorInterval);
             let attempts = 0;
-            
             monitorInterval = setInterval(async () => {
                 attempts++;
-                if (attempts > 60) { // 4 dakika sınır
-                    clearInterval(monitorInterval); 
-                    setLiveState("idle", "Zaman Aşımı (Manuel Kontrol)"); 
-                    return; 
-                }
-
+                if (attempts > 60) { clearInterval(monitorInterval); setLiveState("idle", "Zaman Aşımı"); return; }
                 try {
                     const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/actions/runs?per_page=1`;
                     const res = await fetch(getNoCacheUrl(url), { headers: { 'Authorization': `token ${CONFIG.token}` } });
                     const data = await res.json();
-                    
                     if (data.workflow_runs && data.workflow_runs.length > 0) {
                         const run = data.workflow_runs[0];
-                        
-                        // ÖNEMLİ: Eğer Action ID'si eski ID'den büyükse, yeni işlem başlamış demektir.
                         if (run.id > oldRunId) {
-                            
-                            if (run.status === 'in_progress' || run.status === 'queued') {
-                                setLiveState("loading", `⚙️ İşleniyor... (${run.status})`);
-                            } else if (run.status === 'completed') {
+                            if (run.status === 'in_progress' || run.status === 'queued') setLiveState("loading", `⚙️ İşleniyor...`);
+                            else if (run.status === 'completed') {
                                 clearInterval(monitorInterval);
                                 if (run.conclusion === 'success') {
                                     setLiveState("success", "✅ Tamamlandı!");
                                     setTimeout(() => { fetchStatus(); setLiveState("idle", "Sistem Hazır"); }, 3000);
-                                } else {
-                                    setLiveState("error", "❌ Ajan Hata Aldı!");
-                                }
+                                } else setLiveState("error", "❌ Hata Aldı!");
                             }
-                        } else {
-                            // Hala eski ID var, demek ki GitHub yenisini daha başlatmadı.
-                            setLiveState("loading", "⏳ Başlatılıyor...");
                         }
                     }
-                } catch (e) { console.log("İzleme hatası", e); }
+                } catch (e) {}
             }, 4000);
         }
 
         function setLiveState(state, msg) {
             const msgEl = document.getElementById('live-msg');
             const spinner = document.getElementById('loading-spinner');
-            
             msgEl.innerText = msg;
-            
-            if (state === "loading") {
-                spinner.style.display = "block";
-                spinner.style.borderLeftColor = "#3b82f6"; // Mavi
-                msgEl.style.color = "#3b82f6";
-            } else if (state === "success") {
-                spinner.style.display = "none";
-                msgEl.style.color = "#22c55e"; // Yeşil
-            } else if (state === "error") {
-                spinner.style.display = "none";
-                msgEl.style.color = "#ef4444"; // Kırmızı
-            } else {
-                spinner.style.display = "none";
-                msgEl.style.color = "#64748b"; // Gri
-            }
+            if (state === "loading") { spinner.style.display = "block"; msgEl.style.color = "#3b82f6"; }
+            else if (state === "success") { spinner.style.display = "none"; msgEl.style.color = "#22c55e"; }
+            else if (state === "error") { spinner.style.display = "none"; msgEl.style.color = "#ef4444"; }
+            else { spinner.style.display = "none"; msgEl.style.color = "#64748b"; }
         }
     </script>
 </body>
