@@ -3,18 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Agent Komutanı v3 (Debug)</title>
+    <title>Agent Komutanı v5 (Auto)</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --error: #ef4444; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --warning: #f59e0b; --error: #ef4444; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         h1 { font-size: 1.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin: 0; }
-        .btn-settings { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; }
+        .btn-icon { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: #94a3b8; }
 
-        .status-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        /* DURUM KARTI */
+        .status-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; position: relative; overflow: hidden; }
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; z-index: 2; position: relative; }
         .status-val { font-weight: bold; color: var(--success); font-family: monospace; }
+        
+        /* CANLI DURUM ÇUBUĞU */
+        .live-bar { height: 4px; width: 0%; background: var(--primary); position: absolute; bottom: 0; left: 0; transition: width 0.3s; }
+        .live-status { text-align: center; font-size: 0.8rem; margin-top: 10px; font-weight: bold; color: #64748b; }
+        
+        /* Animasyonlu İşlem Işığı */
+        .processing { color: var(--warning) !important; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
 
         .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
         textarea { background: var(--card); border: 1px solid #334155; color: white; padding: 15px; border-radius: 12px; font-size: 1rem; resize: none; flex-grow: 1; outline: none; }
@@ -35,22 +44,20 @@
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 85%; position: relative; }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; color: #aaa; cursor: pointer; }
         input { width: 100%; padding: 10px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
-        
-        .log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 10px; min-height: 20px; word-wrap: break-word; }
-        .error-txt { color: var(--error); }
     </style>
 </head>
 <body>
 
     <div class="header">
         <h1>Agent Komutanı</h1>
-        <button class="btn-settings" onclick="openSettings()">⚙️</button>
+        <button class="btn-icon" onclick="openSettings()">⚙️</button>
     </div>
 
     <div class="status-card" id="status-box">
         <div class="status-row"><span>Bakiye:</span> <span class="status-val" id="disp-balance">--</span></div>
         <div class="status-row"><span>Son Model:</span> <span class="status-val" id="disp-model">--</span></div>
-        <div class="status-row"><span>Durum:</span> <span class="status-val" style="color:#3b82f6" id="disp-status">Hazır</span></div>
+        <div class="live-status" id="live-msg">Sistem Hazır</div>
+        <div class="live-bar" id="progress-bar"></div>
     </div>
 
     <div class="input-group">
@@ -63,7 +70,6 @@
         <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude</button>
         <button class="btn-xiaomi" onclick="sendCommand('@xiaomi')">⚡ Xiaomi</button>
     </div>
-    <div class="log" id="log">Sistem Hazır.</div>
 
     <div id="settings-modal">
         <div class="modal-content">
@@ -85,6 +91,10 @@
             repo: localStorage.getItem('agent_repo'),
             issue: localStorage.getItem('agent_issue')
         };
+        let monitorInterval = null;
+
+        // Cache Kırıcı
+        function getNoCacheUrl(url) { return url + "?t=" + new Date().getTime(); }
 
         if (!CONFIG.token) openSettings();
         else fetchStatus();
@@ -96,7 +106,6 @@
             document.getElementById('gh-issue').value = localStorage.getItem('agent_issue') || '';
             document.getElementById('settings-modal').style.display = 'flex';
         }
-
         function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 
         function saveSettings() {
@@ -104,120 +113,115 @@
             const o = document.getElementById('gh-owner').value.trim();
             const r = document.getElementById('gh-repo').value.trim();
             const i = document.getElementById('gh-issue').value.trim();
-            
             if(t && o && r && i) {
-                localStorage.setItem('agent_token', t);
-                localStorage.setItem('agent_owner', o);
-                localStorage.setItem('agent_repo', r);
-                localStorage.setItem('agent_issue', i);
+                localStorage.setItem('agent_token', t); localStorage.setItem('agent_owner', o);
+                localStorage.setItem('agent_repo', r); localStorage.setItem('agent_issue', i);
                 CONFIG.token = t; CONFIG.owner = o; CONFIG.repo = r; CONFIG.issue = i;
-                closeSettings();
-                fetchStatus(); 
-            } else alert("Tüm alanları doldurun!");
+                closeSettings(); fetchStatus(); 
+            } else alert("Eksik bilgi!");
         }
 
-        // --- TANI VE TEST FONKSİYONU ---
         async function testConnection() {
             const t = document.getElementById('gh-token').value.trim();
             const o = document.getElementById('gh-owner').value.trim();
             const r = document.getElementById('gh-repo').value.trim();
-            
-            if (!t) return alert("Önce Token girin!");
-
-            // 1. TOKEN KONTROLÜ (Basit User Sorgusu)
+            if (!t) return alert("Token girin!");
             try {
-                const userRes = await fetch("https://api.github.com/user", {
-                    headers: { 'Authorization': `token ${t}` }
-                });
-                
-                if (userRes.status === 401) {
-                    return alert("❌ HATA: Token GEÇERSİZ!\nToken yanlış veya silinmiş. Lütfen 'ghp_' ile başlayan yeni bir Classic Token alın.");
-                }
-                
-                const userData = await userRes.json();
-                alert(`✅ TOKEN DOĞRU!\nMeriha: ${userData.login}\nŞimdi Repo'yu deniyorum...`);
-
-                // 2. REPO KONTROLÜ
-                const repoRes = await fetch(`https://api.github.com/repos/${o}/${r}`, {
-                    headers: { 'Authorization': `token ${t}` }
-                });
-
-                if (repoRes.status === 404) {
-                    return alert(`❌ HATA: Repo Bulunamadı!\nKullanıcı: ${o}\nRepo: ${r}\n\nİsimlerde hata var veya Token'ın 'repo' yetkisi yok.`);
-                }
-
-                alert("✅ BAŞARILI! Her şey doğru çalışıyor. Ayarları Kaydet'e basın.");
-
-            } catch (e) {
-                alert("❌ BAĞLANTI HATASI:\n" + e.message + "\n\nİnternetinizi kontrol edin.");
-            }
+                const u = await fetch("https://api.github.com/user", { headers: { 'Authorization': `token ${t}` } });
+                if (u.status === 401) return alert("❌ Token GEÇERSİZ!");
+                const rp = await fetch(`https://api.github.com/repos/${o}/${r}`, { headers: { 'Authorization': `token ${t}` } });
+                if (rp.status === 404) return alert("❌ Repo Bulunamadı!");
+                alert("✅ BAŞARILI! Kaydedin.");
+            } catch (e) { alert("❌ Hata: " + e.message); }
         }
 
         async function fetchStatus() {
-            const statusEl = document.getElementById('disp-status');
-            const logEl = document.getElementById('log');
-            statusEl.innerText = "Bağlanıyor...";
-            
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/STATUS.md`;
-            
             try {
-                const res = await fetch(url, { headers: { 'Authorization': `token ${CONFIG.token}` } });
-                
-                if (res.status === 404) {
-                    statusEl.innerText = "Veri Yok (404)";
-                    logEl.innerText = "⚠️ STATUS.md yok. İlk komutu gönderin.";
-                    return;
+                const res = await fetch(getNoCacheUrl(url), { headers: { 'Authorization': `token ${CONFIG.token}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = atob(data.content);
+                    document.getElementById('disp-balance').innerText = content.match(/Bakiye\*\* \| `(.*)`/)?.[1] || "--";
+                    document.getElementById('disp-model').innerText = content.match(/Model\*\* \| `(.*)`/)?.[1] || "--";
                 }
-                if (res.status === 401) {
-                    statusEl.innerText = "Yetkisiz";
-                    logEl.innerText = "❌ Token Hatalı. Ayarları kontrol et.";
-                    return;
-                }
-
-                const data = await res.json();
-                const content = atob(data.content); 
-                
-                const balance = content.match(/Bakiye\*\* \| `(.*)`/)?.[1] || "Bilinmiyor";
-                const model = content.match(/Model\*\* \| `(.*)`/)?.[1] || "-";
-                
-                document.getElementById('disp-balance').innerText = balance;
-                document.getElementById('disp-model').innerText = model;
-                statusEl.innerText = "Online 🟢";
-                logEl.innerText = "Sistem Hazır.";
-            } catch (e) {
-                statusEl.innerText = "Hata";
-                logEl.innerText = e.message;
-            }
+            } catch (e) {}
         }
 
         async function sendCommand(agentPrefix) {
             const text = document.getElementById('prompt').value;
-            if (!text) return alert("Görev yazmadınız!");
+            if (!text) return alert("Görev yok!");
 
-            const fullBody = `${agentPrefix} ${text}`;
-            const logEl = document.getElementById('log');
-            logEl.innerText = "⏳ Gönderiliyor...";
-
+            updateLiveStatus("⏳ Emir Gönderiliyor...", "blue", 10);
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
             
             try {
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Authorization': `token ${CONFIG.token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ body: fullBody })
+                    body: JSON.stringify({ body: `${agentPrefix} ${text}` })
                 });
 
                 if (res.ok) {
-                    logEl.innerText = "✅ Emir İletildi!";
                     document.getElementById('prompt').value = "";
-                    setTimeout(fetchStatus, 5000); 
+                    startMonitoring(); // İZLEMEYİ BAŞLAT
                 } else {
-                    const err = await res.json();
-                    alert("GÖNDERİM HATASI:\n" + (err.message || "Bilinmiyor"));
+                    updateLiveStatus("❌ Gönderim Hatası", "red", 0);
                 }
-            } catch (e) {
-                alert("HATA: " + e.message);
-            }
+            } catch (e) { updateLiveStatus("❌ Hata: " + e.message, "red", 0); }
+        }
+
+        // --- 🕵️‍♂️ CANLI TAKİP SİSTEMİ ---
+        function startMonitoring() {
+            if (monitorInterval) clearInterval(monitorInterval);
+            let attempts = 0;
+            
+            updateLiveStatus("🚀 Başlatılıyor...", "orange", 20);
+
+            monitorInterval = setInterval(async () => {
+                attempts++;
+                // 30 deneme (yaklaşık 2 dk) sonra dur
+                if (attempts > 30) { clearInterval(monitorInterval); updateLiveStatus("Zaman Aşımı (Manuel Kontrol Edin)", "gray", 0); return; }
+
+                try {
+                    // GitHub Actions Workflow'larını kontrol et
+                    const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/actions/runs?per_page=1`;
+                    const res = await fetch(getNoCacheUrl(url), { headers: { 'Authorization': `token ${CONFIG.token}` } });
+                    const data = await res.json();
+                    
+                    if (data.workflow_runs && data.workflow_runs.length > 0) {
+                        const run = data.workflow_runs[0];
+                        
+                        if (run.status === 'in_progress' || run.status === 'queued') {
+                            updateLiveStatus(`⚙️ Ajan Çalışıyor... (${run.status})`, "#f59e0b", 60);
+                            document.getElementById('live-msg').classList.add('processing');
+                        } else if (run.status === 'completed') {
+                            if (run.conclusion === 'success') {
+                                clearInterval(monitorInterval);
+                                updateLiveStatus("✅ Tamamlandı! Veriler Güncelleniyor...", "#22c55e", 100);
+                                document.getElementById('live-msg').classList.remove('processing');
+                                setTimeout(() => {
+                                    fetchStatus(); // Bakiyeyi çek
+                                    updateLiveStatus("Sistem Hazır", "#64748b", 0);
+                                }, 2000);
+                            } else {
+                                clearInterval(monitorInterval);
+                                updateLiveStatus("❌ Ajan Hata Aldı!", "#ef4444", 100);
+                                document.getElementById('live-msg').classList.remove('processing');
+                            }
+                        }
+                    }
+                } catch (e) { console.log("İzleme hatası", e); }
+            }, 4000); // 4 saniyede bir kontrol et
+        }
+
+        function updateLiveStatus(msg, color, width) {
+            const msgEl = document.getElementById('live-msg');
+            const barEl = document.getElementById('progress-bar');
+            msgEl.innerText = msg;
+            msgEl.style.color = color === "blue" ? "#3b82f6" : color;
+            barEl.style.width = width + "%";
+            barEl.style.backgroundColor = color;
         }
     </script>
 </body>
