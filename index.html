@@ -12,7 +12,6 @@
         h1 { font-size: 1.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin: 0; }
         .btn-icon { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: #94a3b8; }
 
-        /* DURUM KARTI */
         .status-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; position: relative; overflow: hidden; min-height: 80px; }
         .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; z-index: 2; position: relative; }
         .status-val { font-weight: bold; color: var(--success); font-family: monospace; }
@@ -20,26 +19,18 @@
         .live-container { display: flex; align-items: center; justify-content: center; margin-top: 15px; gap: 10px; }
         .live-status { font-size: 0.9rem; font-weight: bold; color: #64748b; }
         
-        .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-left-color: var(--primary);
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: none;
-        }
+        .spinner { border: 3px solid rgba(255, 255, 255, 0.1); border-left-color: var(--primary); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; margin-bottom: 10px; }
         textarea { background: var(--card); border: 1px solid #334155; color: white; padding: 15px; border-radius: 12px; font-size: 1rem; resize: none; flex-grow: 1; outline: none; }
         textarea:focus { border-color: var(--primary); }
 
-        /* BUTON GRUBU (SCROLLABLE) */
+        /* BUTON GRUBU */
         .model-container { overflow-y: auto; max-height: 250px; padding-right: 5px; }
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         
-        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; font-size: 0.85rem; text-align: center; }
+        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; font-size: 0.85rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         button:active { transform: scale(0.98); }
         
         .btn-gpt { background: linear-gradient(135deg, #10a37f, #0d8c6c); }
@@ -47,10 +38,9 @@
         .btn-gemini { background: linear-gradient(135deg, #4285f4, #34a853); }
         .btn-deepseek { background: linear-gradient(135deg, #3b82f6, #2563eb); }
         .btn-qwen { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-        .btn-glm { background: linear-gradient(135deg, #ec4899, #db2777); }
-        .btn-xiaomi { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-free { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-other { background: linear-gradient(135deg, #ec4899, #db2777); }
         
-        /* Modal & Settings */
         .btn-save { background: var(--primary); width: 100%; margin-top: 10px; }
         .btn-test { background: #64748b; width: 100%; margin-top: 10px; }
         #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 100; }
@@ -81,14 +71,20 @@
 
     <div class="model-container">
         <div class="btn-grid">
-            <button class="btn-gpt" onclick="sendCommand('@gpt5')">🧠 GPT-5.2</button>
-            <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude 4.5</button>
+            <button class="btn-gpt" onclick="sendCommand('@gpt5')">🧠 GPT-5.2 Chat</button>
+            <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude 4.5 Sonnet</button>
+            <button class="btn-claude" style="background:#7c3aed" onclick="sendCommand('@opus45')">🎭 Claude 4.5 Opus</button>
             <button class="btn-gemini" onclick="sendCommand('@gemini3')">💎 Gemini 3 Pro</button>
-            <button class="btn-claude" style="background:#7c3aed" onclick="sendCommand('@opus45')">🎭 Opus 4.5</button>
-            <button class="btn-deepseek" onclick="sendCommand('@deepseek3')">🔵 DeepSeek 3.2</button>
+            
+            <button class="btn-deepseek" onclick="sendCommand('@deepseek3')">🔵 DeepSeek 3.2 Sp.</button>
             <button class="btn-qwen" onclick="sendCommand('@qwen3')">🐉 Qwen 3 Max</button>
-            <button class="btn-glm" onclick="sendCommand('@glm4')">⚡ GLM 4.7</button>
-            <button class="btn-xiaomi" onclick="sendCommand('@xiaomi')">🆓 Xiaomi (Bedava)</button>
+            <button class="btn-other" onclick="sendCommand('@glm4')">⚡ GLM 4.7</button>
+            <button class="btn-other" style="background:#06b6d4" onclick="sendCommand('@minimax')">🦄 Minimax M2.1</button>
+            <button class="btn-other" style="background:#be185d" onclick="sendCommand('@moonshot')">🌙 Moonshot K2</button>
+            
+            <button class="btn-free" onclick="sendCommand('@xiaomi')">🆓 Xiaomi (Bedava)</button>
+            <button class="btn-free" style="background:#ea580c" onclick="sendCommand('@hermes')">🆓 Hermes 3 (Bedava)</button>
+            <button class="btn-free" style="background:#65a30d" onclick="sendCommand('@devstral')">🆓 Devstral (Bedava)</button>
         </div>
     </div>
 
@@ -115,7 +111,6 @@
         let monitorInterval = null;
 
         function getNoCacheUrl(url) { return url + "?t=" + new Date().getTime(); }
-
         if (!CONFIG.token) openSettings();
         else fetchStatus();
 
@@ -127,7 +122,6 @@
             document.getElementById('settings-modal').style.display = 'flex';
         }
         function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
-
         function saveSettings() {
             const t = document.getElementById('gh-token').value.trim();
             const o = document.getElementById('gh-owner').value.trim();
@@ -180,19 +174,15 @@
         async function sendCommand(agentPrefix) {
             const text = document.getElementById('prompt').value;
             if (!text) return alert("Görev yok!");
-
             setLiveState("loading", "⏳ İletiliyor...");
             const lastRunId = await getLastRunId();
-
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
-            
             try {
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Authorization': `token ${CONFIG.token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ body: `${agentPrefix} ${text}` })
                 });
-
                 if (res.ok) {
                     document.getElementById('prompt').value = "";
                     setLiveState("loading", "⏳ Ajan Bekleniyor...");
