@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Agent Komutanı (2026)</title>
+    <title>Agent Komutanı (Chat)</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --warning: #f59e0b; --error: #ef4444; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
@@ -22,14 +22,19 @@
         .spinner { border: 3px solid rgba(255, 255, 255, 0.1); border-left-color: var(--primary); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+        /* YENİ: CEVAP KUTUSU */
+        #response-box {
+            background: #000; color: #0f0; font-family: 'Courier New', monospace;
+            padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px;
+            font-size: 0.9rem; min-height: 50px; white-space: pre-wrap; display: none;
+        }
+
         .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; margin-bottom: 10px; }
         textarea { background: var(--card); border: 1px solid #334155; color: white; padding: 15px; border-radius: 12px; font-size: 1rem; resize: none; flex-grow: 1; outline: none; }
         textarea:focus { border-color: var(--primary); }
 
-        /* BUTON GRUBU */
         .model-container { overflow-y: auto; max-height: 250px; padding-right: 5px; }
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        
         button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; font-size: 0.85rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         button:active { transform: scale(0.98); }
         
@@ -65,8 +70,10 @@
         </div>
     </div>
 
+    <div id="response-box"></div>
+
     <div class="input-group">
-        <textarea id="prompt" placeholder="Görev tanımı..."></textarea>
+        <textarea id="prompt" placeholder="Soru sor veya görev ver..."></textarea>
     </div>
 
     <div class="model-container">
@@ -75,13 +82,11 @@
             <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude 4.5 Sonnet</button>
             <button class="btn-claude" style="background:#7c3aed" onclick="sendCommand('@opus45')">🎭 Claude 4.5 Opus</button>
             <button class="btn-gemini" onclick="sendCommand('@gemini3')">💎 Gemini 3 Pro</button>
-            
             <button class="btn-deepseek" onclick="sendCommand('@deepseek3')">🔵 DeepSeek 3.2 Sp.</button>
             <button class="btn-qwen" onclick="sendCommand('@qwen3')">🐉 Qwen 3 Max</button>
             <button class="btn-other" onclick="sendCommand('@glm4')">⚡ GLM 4.7</button>
             <button class="btn-other" style="background:#06b6d4" onclick="sendCommand('@minimax')">🦄 Minimax M2.1</button>
             <button class="btn-other" style="background:#be185d" onclick="sendCommand('@moonshot')">🌙 Moonshot K2</button>
-            
             <button class="btn-free" onclick="sendCommand('@xiaomi')">🆓 Xiaomi (Bedava)</button>
             <button class="btn-free" style="background:#ea580c" onclick="sendCommand('@hermes')">🆓 Hermes 3 (Bedava)</button>
             <button class="btn-free" style="background:#65a30d" onclick="sendCommand('@devstral')">🆓 Devstral (Bedava)</button>
@@ -162,6 +167,22 @@
             } catch (e) {}
         }
 
+        // --- YENİ: CEVABI OKUMA FONKSİYONU ---
+        async function fetchReply() {
+            const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/LAST_REPLY.txt`;
+            try {
+                const res = await fetch(getNoCacheUrl(url), { headers: { 'Authorization': `token ${CONFIG.token}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    // Unicode karakterleri düzgün çözmek için decodeURIComponent + escape
+                    const content = decodeURIComponent(escape(atob(data.content)));
+                    const box = document.getElementById('response-box');
+                    box.style.display = 'block';
+                    box.innerText = "🤖 " + content;
+                }
+            } catch (e) {}
+        }
+
         async function getLastRunId() {
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/actions/runs?per_page=1`;
             try {
@@ -175,8 +196,11 @@
             const text = document.getElementById('prompt').value;
             if (!text) return alert("Görev yok!");
             setLiveState("loading", "⏳ İletiliyor...");
+            document.getElementById('response-box').style.display = 'none'; // Yeni emirde eski cevabı gizle
+            
             const lastRunId = await getLastRunId();
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
+            
             try {
                 const res = await fetch(url, {
                     method: 'POST',
@@ -209,7 +233,12 @@
                                 clearInterval(monitorInterval);
                                 if (run.conclusion === 'success') {
                                     setLiveState("success", "✅ Tamamlandı!");
-                                    setTimeout(() => { fetchStatus(); setLiveState("idle", "Sistem Hazır"); }, 3000);
+                                    // HEMEN CEVABI ÇEK!
+                                    setTimeout(() => { 
+                                        fetchReply(); 
+                                        fetchStatus(); 
+                                        setLiveState("idle", "Sistem Hazır"); 
+                                    }, 2000);
                                 } else setLiveState("error", "❌ Hata Aldı!");
                             }
                         }
