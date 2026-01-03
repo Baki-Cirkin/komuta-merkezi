@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agent Komutanı v2</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --primary: #3b82f6; --success: #22c55e; --error: #ef4444; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { font-size: 1.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+        .btn-settings { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; }
+
+        .status-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .status-val { font-weight: bold; color: var(--success); font-family: monospace; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+        textarea { background: var(--card); border: 1px solid #334155; color: white; padding: 15px; border-radius: 12px; font-size: 1rem; resize: none; flex-grow: 1; outline: none; }
+        textarea:focus { border-color: var(--primary); }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        button { border: none; padding: 15px; border-radius: 10px; font-weight: bold; color: white; cursor: pointer; transition: transform 0.1s; font-size: 0.9rem; }
+        button:active { transform: scale(0.98); }
+        
+        .btn-gpt { background: linear-gradient(135deg, #10a37f, #0d8c6c); }
+        .btn-claude { background: linear-gradient(135deg, #d97757, #b95e42); }
+        .btn-deepseek { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .btn-xiaomi { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-save { background: var(--primary); width: 100%; margin-top: 10px; }
+        
+        #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 85%; position: relative; }
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; color: #aaa; cursor: pointer; }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; box-sizing: border-box;}
+        
+        .log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 10px; min-height: 20px; word-wrap: break-word; }
+        .error-txt { color: var(--error); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Agent Komutanı</h1>
+        <button class="btn-settings" onclick="openSettings()">⚙️</button>
+    </div>
+
+    <div class="status-card" id="status-box">
+        <div class="status-row"><span>Bakiye:</span> <span class="status-val" id="disp-balance">--</span></div>
+        <div class="status-row"><span>Son Model:</span> <span class="status-val" id="disp-model">--</span></div>
+        <div class="status-row"><span>Durum:</span> <span class="status-val" style="color:#3b82f6" id="disp-status">Bekleniyor...</span></div>
+    </div>
+
+    <div class="input-group">
+        <textarea id="prompt" placeholder="Ajan'a ne yaptırmak istiyorsun?"></textarea>
+    </div>
+
+    <div class="btn-grid">
+        <button class="btn-deepseek" onclick="sendCommand('@deepseek')">🔵 DeepSeek</button>
+        <button class="btn-gpt" onclick="sendCommand('@gpt5')">🧠 GPT-5</button>
+        <button class="btn-claude" onclick="sendCommand('@claude45')">🏛️ Claude</button>
+        <button class="btn-xiaomi" onclick="sendCommand('@xiaomi')">⚡ Xiaomi</button>
+    </div>
+    <div class="log" id="log">Sistem Hazır.</div>
+
+    <div id="settings-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeSettings()">&times;</span>
+            <h3>⚙️ Ayarlar</h3>
+            <p style="font-size:0.8rem; color:#aaa">Classic Token (ghp_...) giriniz.</p>
+            <input type="text" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+            <input type="text" id="gh-owner" placeholder="Baki-Cirkin">
+            <input type="text" id="gh-repo" placeholder="agent-mode">
+            <input type="number" id="gh-issue" placeholder="6">
+            <button class="btn-save" onclick="saveSettings()">KAYDET</button>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            token: localStorage.getItem('agent_token'),
+            owner: localStorage.getItem('agent_owner'),
+            repo: localStorage.getItem('agent_repo'),
+            issue: localStorage.getItem('agent_issue')
+        };
+
+        if (!CONFIG.token) openSettings();
+        else fetchStatus();
+
+        function openSettings() {
+            document.getElementById('gh-token').value = localStorage.getItem('agent_token') || '';
+            document.getElementById('gh-owner').value = localStorage.getItem('agent_owner') || '';
+            document.getElementById('gh-repo').value = localStorage.getItem('agent_repo') || '';
+            document.getElementById('gh-issue').value = localStorage.getItem('agent_issue') || '';
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function saveSettings() {
+            const t = document.getElementById('gh-token').value.trim();
+            const o = document.getElementById('gh-owner').value.trim();
+            const r = document.getElementById('gh-repo').value.trim();
+            const i = document.getElementById('gh-issue').value.trim();
+            
+            if(t && o && r && i) {
+                localStorage.setItem('agent_token', t);
+                localStorage.setItem('agent_owner', o);
+                localStorage.setItem('agent_repo', r);
+                localStorage.setItem('agent_issue', i);
+                CONFIG.token = t; CONFIG.owner = o; CONFIG.repo = r; CONFIG.issue = i;
+                closeSettings();
+                fetchStatus(); 
+            } else alert("Tüm alanları doldurun!");
+        }
+
+        async function fetchStatus() {
+            const statusEl = document.getElementById('disp-status');
+            const logEl = document.getElementById('log');
+            
+            statusEl.innerText = "Bağlanıyor...";
+            logEl.innerText = "GitHub'a bağlanılıyor...";
+            
+            const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/STATUS.md`;
+            
+            try {
+                const res = await fetch(url, { 
+                    headers: { 'Authorization': `token ${CONFIG.token}`, 'Cache-Control': 'no-cache' } 
+                });
+                
+                // HATA YÖNETİMİ (Döngüyü Engeller)
+                if (res.status === 404) {
+                    statusEl.innerText = "Veri Yok (404)";
+                    logEl.innerText = "⚠️ STATUS.md dosyası bulunamadı. Ajan bir kez çalışınca düzelir.";
+                    return; // Ayarları açma, sadece bekle.
+                }
+
+                if (res.status === 401) {
+                    statusEl.innerText = "Yetki Hatası (401)";
+                    logEl.innerHTML = "<span class='error-txt'>Token Hatalı! Ayarlardan ghp_ token girin.</span>";
+                    return;
+                }
+
+                if (!res.ok) throw new Error("Hata Kodu: " + res.status);
+
+                const data = await res.json();
+                const content = atob(data.content); 
+                
+                const balance = content.match(/Bakiye\*\* \| `(.*)`/)?.[1] || "Bilinmiyor";
+                const model = content.match(/Model\*\* \| `(.*)`/)?.[1] || "-";
+                
+                document.getElementById('disp-balance').innerText = balance;
+                document.getElementById('disp-model').innerText = model;
+                statusEl.innerText = "Online 🟢";
+                logEl.innerText = "Sistem Hazır.";
+
+            } catch (e) {
+                statusEl.innerText = "Hata 🔴";
+                logEl.innerHTML = `<span class='error-txt'>${e.message}</span>`;
+                // KESİNLİKLE openSettings() ÇAĞIRMIYORUZ.
+            }
+        }
+
+        async function sendCommand(agentPrefix) {
+            const text = document.getElementById('prompt').value;
+            if (!text) return alert("Görev yazmadınız!");
+
+            const fullBody = `${agentPrefix} ${text}`;
+            const logEl = document.getElementById('log');
+            logEl.innerText = "⏳ Emir Gönderiliyor...";
+
+            const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues/${CONFIG.issue}/comments`;
+            
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `token ${CONFIG.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ body: fullBody })
+                });
+
+                if (res.ok) {
+                    logEl.innerText = "✅ Emir İletildi! Agent çalışmaya başladı.";
+                    document.getElementById('prompt').value = "";
+                    setTimeout(fetchStatus, 5000); 
+                } else {
+                    const errData = await res.json();
+                    throw new Error(errData.message || "Bilinmeyen Hata");
+                }
+            } catch (e) {
+                logEl.innerHTML = `<span class='error-txt'>Gönderim Hatası: ${e.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
